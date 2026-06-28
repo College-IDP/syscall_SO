@@ -1,0 +1,23 @@
+#!/bin/sh
+mount -t proc none /proc
+mount -t sysfs none /sys
+mknod -m 666 /dev/ttyS0 c 4 64
+
+mdev -s
+
+insmod /driver-atividade.ko
+
+echo
+echo "===== /proc (driver da atividade) ====="
+ls /proc | grep -i idp
+
+echo "===== executando call_iamroot como uid 1000 ====="
+setuidgid 1000 /bin/call_iamroot
+
+echo "===== dmesg (matricula, hora e RESPOSTA) ====="
+dmesg | grep -iE "iamroot|IDP|RESPOSTA"
+
+echo "===== FIM ====="
+poweroff -d 0 -f
+
+exec /bin/sh

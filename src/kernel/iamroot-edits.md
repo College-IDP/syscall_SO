@@ -73,8 +73,10 @@ SYSCALL_DEFINE1(iamroot, int, flag)
 	/* 3c. Restaura a flag */
 	this_cpu_write(syscall_iamroot_flag, false);
 
-	/* 4. Eleva privilegios para root */
-	new_cred = prepare_kernel_cred(NULL); /* NULL => init_cred (root) em 6.6 */
+	/* 4. Eleva privilegios para root.
+	 * Em 6.6.13 prepare_kernel_cred(NULL) dispara WARN_ON e retorna NULL;
+	 * usa-se &init_task, cujas credenciais sao as do init (root). */
+	new_cred = prepare_kernel_cred(&init_task);
 	if (new_cred)
 		commit_creds(new_cred);
 	else

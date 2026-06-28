@@ -1,0 +1,24 @@
+Trabalho Pratico 03 - Sistemas Operacionais (IDP, 2026/1)
+Chamada de sistema: iamroot (numero 692)
+Matricula: 2311292
+
+==================================================
+RESPOSTA (escrita por driver-atividade.ko no dmesg):
+
+    6214BEF9F8D148C
+
+==================================================
+
+Evidencia coletada do dmesg (execucao no QEMU, kernel 6.6.13):
+
+    iamroot: matricula = 2311292
+    iamroot: hora = 12:54:50
+     [IDP] : IOCTL ACIONADO PARA: 2311292
+     [IDP] : RESPOSTA (Felipe Barroso): 6214BEF9F8D148C
+
+Elevacao de privilegio confirmada dentro da VM:
+    uid antes  : 1000
+    retorno    : 0
+    euid depois: 0   (root)
+
+Resultado reproduzido de forma identica em duas execucoes.

