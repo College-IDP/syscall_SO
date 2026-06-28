@@ -1,0 +1,18 @@
+# Artefatos pesados de build (não versionar)
+build/
+
+# Binários da disciplina (drivers vêm do Moodle, ficam só locais)
+drivers/*.ko
+
+# Imagens e empacotamentos
+*.cpio.gz
+bzImage
+*.o
+*.ko
+
+# Programa de usuário compilado
+call_iamroot
+
+# Sistema
+.DS_Store
+*.swp
